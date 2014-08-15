@@ -8,7 +8,7 @@ unzip("activity.zip")
 activity <- read.csv(file="activity.csv")
 ```
 
-Transforming the date into POSIXlt date format.
+Transforming the date into POSIXlt format.
 
 ```{r dataformatting}
 activity$date <- strptime(activity$date, format="%Y-%m-%d")
@@ -16,51 +16,46 @@ activity$date <- strptime(activity$date, format="%Y-%m-%d")
 
 ### What is mean total number of steps taken per day?
 
-Computing a histogram of the total number of steps taken each day.
+Computing a histogram of the total number of steps taken each day using plyr package.
 
 ```{r sumsteps}
-require(plyr)
+library(plyr)
 StepsSummary <- ddply(activity, .(date), summarize, 
-      meanSteps = mean(steps), 
-      medianSteps = median(steps, na.rm = TRUE), 
       sumSteps = sum(steps))
 
-hist(StepsSummary$sumSteps, col = "grey", main = c("Histogram of Number of Steps"), 
-xlab = c("Number of Steps Taken per Day"))
-
-#tapply(x, list(group[row(x)], col(x)), sum)
-#t(sapply(split(as.data.frame(x), group), colSums))
-#aggregate(x, list(group), sum)[-1]
+hist(StepsSummary$sumSteps, col = "grey", breaks = 10, main = c("Histogram of Number of Steps"), 
+xlab = c("Number of Steps per Day"))
 ```
-
 
 ```{r meanmedian}
-Mean = round(mean(StepsSummary$sumSteps, na.rm = TRUE), 0)
+Mean = as.numeric(round(mean(StepsSummary$sumSteps, na.rm = TRUE), 0))
 Median = median(StepsSummary$sumSteps, na.rm = TRUE)
 ```
+
 For the total number of steps taken each day, the mean is **`r Mean`** and the median is **`r Median`**.
 
 ### What is the average daily activity pattern?
 
-1. Make a time series plot (i.e. `type = "l"`) of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+Making a time series plot to examine the daily activity pattern. of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
 
 ```{r sumdailysteps}
 require(plyr)
 StepsTimeInt <- ddply(activity, .(interval), summarize, 
       timeIntSteps = round(mean(steps, na.rm = TRUE), 0))
 
+library("ggplot2")
+ggplot(StepsTimeInt, aes(x = interval, y = timeIntSteps)) + geom_line() 
+
 maxRow <- which.max(StepsTimeInt$timeIntSteps)
 tInt <- StepsTimeInt$interval[maxRow]
 ```
 
-Of the 5-minute intervals, on average across all the days in the dataset, the interval **`r tInt`** had the maximum number of steps.
+Of the 5-minute intervals, on average across all the days in the dataset, the interval **`r tInt`** (8:35am) had the maximum number of steps.
 
 
 ### Imputing missing values
 
-Note that there are a number of days/intervals where there are missing
-values (coded as `NA`). The presence of missing days may introduce
-bias into some calculations or summaries of the data.
+Imputing missing values (`NA`)to avoid introducing bias into calculations or summaries of the data. Calculating the number of missing values first.
 
 ```{r NAvalues}
 NAvalues = sum(colSums(is.na(activity)))
@@ -68,20 +63,14 @@ NAvalues = sum(colSums(is.na(activity)))
 
 Total number of missing values in the dataset is **`r NAvalues`**.
 
-
-2. Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
-
-Creating an index of missing values; 
-Using previous calculation of steps mean for every given interval, inserting values for missing observations, while populating remaining rows with NAs 
-Replacing all NAs with 0 and summing them up to get new imputed values
+Filling in all of the missing values in the dataset based on the the mean for that 5-minute interval.
+Steps are as follows:
+- Creating an index of missing values
+- Creating a vector of step mean that correspons to each given interval for each day based on the previous calculation of step means
+- Inserting values for missing observations, while populating remaining rows with NAs
+- Replacing all NAs with 0 and summing up steps and average steps columns to create imputed values.
 
 ```{r imputingNAValues}
-
-activity <- read.csv(file="activity.csv")
-activity$date <- strptime(activity$date, format="%Y-%m-%d")
-StepsTimeInt <- ddply(activity, .(interval), summarize, 
-      timeIntSteps = round(mean(steps, na.rm = TRUE), 0))
-
 NAindex <- !complete.cases(activity$steps)
 
 stepsMean = StepsTimeInt$timeIntSteps[which(StepsTimeInt$interval == activity$interval)]
@@ -91,89 +80,50 @@ activity$stepsNoNAs <- activity$steps + activity$stepsMean
 
 ```
 
-3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
+Creating a new dataset with the missing data filled in.
+
 ```{r imputeddataset}
 activityImputed <- subset(activity, select = c(stepsNoNAs, date, interval))
 ```
 
-4. Make a histogram of the total number of steps taken each day and Calculate and report the **mean** and **median** total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+Making a histogram of the total number of steps taken each day.
+
 ```{r newhistogram}
 StepsSummaryImputed <- ddply(activityImputed, .(date), summarize, 
       sumSteps = sum(stepsNoNAs))
 
-hist(StepsSummaryImputed$sumSteps, col = "grey", main = c("Histogram of Number of Steps With Imputed Missing Values"), 
+hist(StepsSummaryImputed$sumSteps, col = "grey", breaks = 10, main = c("Histogram of Number of Steps With Imputed Missing Values"), 
 xlab = c("Number of Steps Taken per Day"))
 ```
+
+Calculate and report the **mean** and **median** total number of steps taken per day. 
 
 ```{r meanmedianimputed}
 MeanImputed = round(mean(StepsSummaryImputed$sumSteps, na.rm = TRUE), 0)
 MedianImputed = median(StepsSummaryImputed$sumSteps, na.rm = TRUE)
 ```
 
+Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
 Mean and median values are lower with imputed values -- since the distribution has a right-skew, imputed values on average are smaller. The difference between the Mean and the Median increases.
 
 ### Are there differences in activity patterns between weekdays and weekends?
 
-For this part the `weekdays()` function may be of some help here. Use
-the dataset with the filled-in missing values for this part.
+Using the dataset with the filled-in missing values, created another column with a weekday label using weekeays() function. Adjusted the levels to only include "weekday" and "weekend".
 
-```{r weekdaypatterns}
+```{r weekdaypatterns, fig.width = 8}
 activityImputed$weekdays <- as.factor(weekdays(activityImputed$date))
 labelWeekdays = c("weekday", "weekday", "weekend", "weekend", "weekday", "weekday", "weekday")
 levels(activityImputed$weekdays) = as.factor(labelWeekdays)
+```
 
+Creating a panel plot for the time series with the 5-minute interval as x-axis and the average number of steps taken, averaged across all weekday days or weekend days as y-axis. The plot illustrates differences in activity between weekend and weekdays.
+
+```{r plotbyweekday}
+require(plyr)
 StepsTimeImputed <- ddply(activityImputed, .(interval, weekdays), summarize, 
       timeIntSteps = round(mean(stepsNoNAs),0))
 
 library("ggplot2")
 ggplot(StepsTimeImputed, aes(group = factor(weekdays), x = interval, y = timeIntSteps, color = weekdays)) + geom_line() 
-
 ```
-
-http://stackoverflow.com/questions/18827532/relevel-a-factor
-
-1. Create a new factor variable in the dataset with two levels -- "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
-
-1. Make a panel plot containing a time series plot (i.e. `type = "l"`) of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). The plot should look something like the following, which was creating using **simulated data**:
-
-![Sample panel plot](instructions_fig/sample_panelplot.png) 
-
-
-**Your plot will look different from the one above** because you will
-be using the activity monitor data. Note that the above plot was made
-using the lattice system but you can make the same version of the plot
-using any plotting system you choose.
-
-
-## Submitting the Assignment
-
-To submit the assignment:
-
-1. Commit the your completed `PA1_template.Rmd` file to the `master` branch of your git repository (you should already be on the `master` branch unless you created new ones)
-
-2. Commit your `PA1_template.md` and `PA1_template.html` files produced by processing your R markdown file with `knit2html()` function in R (from the **knitr** package)
-
-3. If your document has figures included (it should) then they should have been placed in the `figures/` directory by default (unless you overrided the default). Add and commit the `figures/` directory to yoru git repository.
-
-4. Push your `master` branch to GitHub.
-
-5. Submit the URL to your GitHub repository for this assignment on the course web site.
-
-In addition to submitting the URL for your GitHub repository, you will
-need to submit the 40 character SHA-1 hash (as string of numbers from
-0-9 and letters from a-f) that identifies the repository commit that
-contains the version of the files you want to submit. You can do this
-in GitHub by doing the following
-
-1. Going to your GitHub repository web page for this assignment
-
-2. Click on the "?? commits" link where ?? is the number of commits you have in the repository. For example, if you made a total of 10 commits to this repository, the link should say "10 commits".
-
-3. You will see a list of commits that you have made to this repository. The most recent commit is at the very top. If this represents the version of the files you want to submit, then just click the "copy to clipboard" button on the right hand side that should appear when you hover over the SHA-1 hash. Paste this SHA-1 hash into the course web site when you submit your assignment. If you don`t want to use the most recent commit, then go down and find the commit you want and copy the SHA-1 hash.
-
-A valid submission will look something like (this is just an **example**!)
-
-r
-https://github.com/rdpeng/RepData_PeerAssessment1
-
-7c376cc5447f11537f8740af8e07d6facc3d9645
