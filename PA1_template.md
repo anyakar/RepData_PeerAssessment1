@@ -10,7 +10,7 @@ activity <- read.csv(file="activity.csv")
 ```
 
 Transforming the date into POSIXlt format.
-Time interval is converted to 1.05 from 105 to better reflect the hour for time series plots.
+Time interval is converted to `h.mm` from `hmm` to better reflect the hour for time series plots.
 
 
 ```r
@@ -84,7 +84,7 @@ NAvalues = sum(colSums(is.na(activity)))
 
 Total number of missing values in the dataset is **2304**.
 
-Imputing missing values (`NA`) to avoid introducing bias into calculations or summaries of the data. Filling in all of the missing values in the dataset based on the the mean for that 5-minute interval.
+Imputing missing values `NA` to avoid introducing bias into calculations or summaries of the data. Filling in all of the missing values in the dataset based on the the mean for that 5-minute interval.
 Steps are as follows:
 - Creating an index of missing values
 - Creating a vector of step means that correspons to each given interval for each day --  using previous calculation of step means
@@ -180,4 +180,12 @@ title(xlab = "Time of day (24-hour)", ylab = "Number of steps",
 
 ![plot of chunk plotbyweekday](figure/plotbyweekday2.png) 
 
+Plotting weekday and weekend activity together makes it easier to compare.
 
+```r
+library("ggplot2")
+ggplot(StepsTimeImputed, aes(group = factor(weekdays), x = interval, 
+      y = timeIntSteps, color = weekdays)) + geom_line() 
+```
+
+![plot of chunk ggplots](figure/ggplots.png) 
